@@ -29,10 +29,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:10,1');
 
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
-    Route::post('/register', [RegisterController::class, 'store']);
+    Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:5,1');
 
     Route::get('/forgot-password', [PasswordResetController::class, 'forgotForm'])->name('password.forgot');
-    Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
+    Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,1');
     Route::get('/verify-otp', [PasswordResetController::class, 'otpForm'])->name('otp.form');
     Route::post('/verify-otp', [PasswordResetController::class, 'verifyOtp'])->middleware('throttle:10,1')->name('otp.verify');
     Route::get('/reset-password', [PasswordResetController::class, 'resetForm'])->name('password.reset');
@@ -76,6 +76,6 @@ Route::middleware(['auth', 'role:'.implode(',', TaiKhoan::ADMIN_ROLES)])->prefix
     Route::resource('nhapkho', NhapKhoController::class)->only(['index', 'create', 'store', 'show']);
 
     Route::get('users', [NguoiDungController::class, 'index'])->name('users.index');
-    Route::post('users/{taiKhoan}/role', [NguoiDungController::class, 'doiQuyen'])->name('users.role');
-    Route::post('users/{taiKhoan}/lock', [NguoiDungController::class, 'khoa'])->name('users.lock');
+    Route::post('users/{taiKhoan}/role', [NguoiDungController::class, 'doiQuyen'])->middleware('role:ROLE_ADMIN')->name('users.role');
+    Route::post('users/{taiKhoan}/lock', [NguoiDungController::class, 'khoa'])->middleware('role:ROLE_ADMIN')->name('users.lock');
 });

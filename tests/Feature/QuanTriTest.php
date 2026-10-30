@@ -210,6 +210,20 @@ class QuanTriTest extends TestCase
         $this->assertSame(10, SanPham::find('SP001')->SoLuong);
     }
 
+    public function test_nhan_vien_khong_duoc_doi_quyen_hay_khoa_tai_khoan(): void
+    {
+        $nv = $this->admin('ROLE_STAFF');
+        $admin = TaiKhoan::create(['TenDangNhap' => 'admin_goc', 'MatKhau' => '123456', 'Quyen' => 'ROLE_ADMIN', 'TrangThai' => true, 'LoaiTaiKhoan' => 'LOCAL']);
+
+        $this->actingAs($nv)->post('/admin/users/admin_goc/role', ['quyen' => 'ROLE_CUSTOMER'])->assertForbidden();
+        $this->actingAs($nv)->post('/admin/users/admin_goc/lock')->assertForbidden();
+        $this->actingAs($nv)->post('/admin/users/'.$nv->TenDangNhap.'/role', ['quyen' => 'ROLE_ADMIN'])->assertForbidden();
+
+        $this->assertSame('ROLE_ADMIN', $admin->fresh()->Quyen);
+        $this->assertTrue($admin->fresh()->TrangThai);
+        $this->assertSame('ROLE_STAFF', $nv->fresh()->Quyen);
+    }
+
     public function test_doi_quyen_khoa_tai_khoan_va_khong_tu_khoa_chinh_minh(): void
     {
         $ad = $this->admin();

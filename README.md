@@ -88,7 +88,7 @@ database/migrations/         17 migration (khóa ngoại, khóa kép, soft delet
 database/seeders, factories/ dữ liệu mẫu
 resources/views/             layouts, includes, customers/, admin/, emails/
 routes/web.php               toàn bộ đường dẫn
-tests/Feature/               39 test (xác thực, mua hàng, quản trị)
+tests/Feature/               43 test (xác thực, mua hàng, quản trị)
 docs/                        ERD, Use Case
 ```
 

@@ -127,4 +127,47 @@ class AuthTest extends TestCase
     {
         $this->post('/forgot-password', ['phone' => '0900000000'])->assertSessionHasErrors('phone');
     }
+
+    public function test_otp_quen_mat_khau_khong_mo_khoa_duoc_tai_khoan_bi_khoa(): void
+    {
+        $this->taoTaiKhoan('khoa1', hoatDong: false);
+        KhachHang::create(['MaKH' => 'KH001', 'HoTen' => 'A', 'DienThoai' => '0911222333', 'TenDangNhap' => 'khoa1']);
+
+        $this->post('/forgot-password', ['phone' => '0911222333']);
+        $token = TokenQuenMatKhau::where('TenDangNhap', 'khoa1')->firstOrFail();
+        $this->assertSame('forgot', $token->MucDich);
+
+        // Gửi kèm type=register để thử kích hoạt lại tài khoản: mục đích lấy từ CSDL nên bị bỏ qua
+        $this->post('/verify-otp', ['token' => $token->ChuoiToken, 'type' => 'register', 'otp' => $token->OTPCode])
+            ->assertRedirect(route('password.reset', ['token' => $token->ChuoiToken]));
+        $this->assertFalse(TaiKhoan::find('khoa1')->TrangThai);
+    }
+
+    public function test_nhap_sai_otp_5_lan_thi_token_bi_xoa(): void
+    {
+        $this->post('/register', ['username' => 'moi1', 'password' => '123456', 'phone' => '0911222333']);
+        $token = TokenQuenMatKhau::where('TenDangNhap', 'moi1')->firstOrFail();
+        $dung = $token->OTPCode;
+        $sai = $dung === '000000' ? '111111' : '000000';
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->post('/verify-otp', ['token' => $token->ChuoiToken, 'otp' => $sai])->assertSessionHasErrors('otp');
+        }
+
+        $this->assertNull(TokenQuenMatKhau::where('ChuoiToken', $token->ChuoiToken)->first());
+        $this->post('/verify-otp', ['token' => $token->ChuoiToken, 'otp' => $dung])->assertSessionHasErrors('otp');
+        $this->assertFalse(TaiKhoan::find('moi1')->TrangThai);
+    }
+
+    public function test_xin_otp_qua_3_lan_cho_mot_so_dien_thoai_bi_chan(): void
+    {
+        $this->taoTaiKhoan('khach1');
+        KhachHang::create(['MaKH' => 'KH001', 'HoTen' => 'A', 'DienThoai' => '0911222333', 'TenDangNhap' => 'khach1']);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->post('/forgot-password', ['phone' => '0911222333'])->assertSessionHasNoErrors();
+        }
+        $this->post('/forgot-password', ['phone' => '0911222333'])->assertSessionHasErrors('phone');
+        $this->assertSame(3, TokenQuenMatKhau::where('TenDangNhap', 'khach1')->count());
+    }
 }

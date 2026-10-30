@@ -43,14 +43,14 @@ class PasswordResetController extends Controller
     public function verifyOtp(VerifyOtpRequest $request): RedirectResponse
     {
         ['token' => $token, 'otp' => $otp] = $request->validated();
-        $type = $request->input('type');
+        $mucDich = $this->auth->mucDich($token);   // lấy từ CSDL, không tin tham số "type" do trình duyệt gửi
 
         if (! $this->auth->xacMinhOtp($token, $otp)) {
-            return redirect()->route('otp.form', array_filter(['token' => $token, 'type' => $type]))
+            return redirect()->route('otp.form', array_filter(['token' => $token, 'type' => $mucDich]))
                 ->withErrors(['otp' => 'Mã OTP không đúng hoặc đã hết hạn']);
         }
 
-        if ($type === 'register') {
+        if ($mucDich === 'register') {
             $this->auth->kichHoat($token);
 
             return redirect()->route('login')->with('success', 'Đăng ký thành công! Vui lòng đăng nhập.');

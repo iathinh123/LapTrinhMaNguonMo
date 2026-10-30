@@ -7,8 +7,10 @@ use App\Models\KhachHang;
 use App\Models\TaiKhoan;
 use App\Models\TokenQuenMatKhau;
 use App\Support\IdGen;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -36,9 +38,9 @@ class AuthService
             ]);
             KhachHang::create([
                 'MaKH' => IdGen::numeric('KhachHang', 'MaKH', 'KH', 3), 'HoTen' => $d['username'],
-                'DienThoai' => $d['phone'], 'Email' => $d['email'] ?: null, 'TenDangNhap' => $d['username'],
+                'DienThoai' => $d['phone'], 'Email' => ($d['email'] ?? null) ?: null, 'TenDangNhap' => $d['username'],
             ]);
-            $this->luuToken($d['username'], $token, $otp);
+            $this->luuToken($d['username'], $token, $otp, 'register');
         });
 
         return ['token' => $token, 'otp' => $otp, 'sent' => $this->sms->guiOtp($d['phone'], $otp)];
@@ -48,6 +50,12 @@ class AuthService
     public function guiOtpQuenMatKhau(string $dienThoai): array
     {
         $dienThoai = trim($dienThoai);
+        $gioiHan = 'otp-sdt:'.$dienThoai;                  // tối đa 3 lần xin OTP / 10 phút cho mỗi số điện thoại
+        if (RateLimiter::tooManyAttempts($gioiHan, 3)) {
+            throw ValidationException::withMessages(['phone' => 'Bạn đã xin OTP quá nhiều lần, vui lòng thử lại sau ít phút']);
+        }
+        RateLimiter::hit($gioiHan, 600);
+
         $kh = KhachHang::where('DienThoai', $dienThoai)->first();
         if (! $kh || empty($kh->TenDangNhap)) {
             throw ValidationException::withMessages(['phone' => 'Số điện thoại không tồn tại']);
@@ -55,7 +63,7 @@ class AuthService
 
         $otp = $this->taoOtp();
         $token = (string) Str::uuid();
-        $this->luuToken($kh->TenDangNhap, $token, $otp);
+        $this->luuToken($kh->TenDangNhap, $token, $otp, 'forgot');
 
         if (filled($kh->Email)) {
             try {
@@ -68,16 +76,42 @@ class AuthService
         return ['token' => $token, 'otp' => $otp, 'sent' => $this->sms->guiOtp($dienThoai, $otp)];
     }
 
+    /** Sai quá số lần này thì xóa token, buộc người dùng xin OTP mới (chống dò 6 chữ số). */
+    private const SO_LAN_SAI_TOI_DA = 5;
+
     public function xacMinhOtp(string $token, string $otp): bool
     {
         $t = TokenQuenMatKhau::where('ChuoiToken', $token)->first();
+        if ($t === null || $t->NgayHetHan->isPast()) {
+            return false;
+        }
+        if ($t->OTPCode !== null && hash_equals($t->OTPCode, $otp)) {
+            Cache::forget('otp_sai.'.$token);
 
-        return $t !== null && $t->OTPCode !== null && hash_equals($t->OTPCode, $otp) && $t->NgayHetHan->isFuture();
+            return true;
+        }
+
+        Cache::add('otp_sai.'.$token, 0, now()->addMinutes(self::OTP_PHUT));
+        if (Cache::increment('otp_sai.'.$token) >= self::SO_LAN_SAI_TOI_DA) {
+            $t->delete();
+            Cache::forget('otp_sai.'.$token);
+        }
+
+        return false;
+    }
+
+    /** Mục đích của token ('register' hoặc 'forgot'), lấy từ CSDL chứ không tin tham số do người dùng gửi. */
+    public function mucDich(string $token): ?string
+    {
+        return TokenQuenMatKhau::where('ChuoiToken', $token)->value('MucDich');
     }
 
     public function kichHoat(string $token): void
     {
         $t = $this->layTokenConHan($token);
+        if ($t->MucDich !== 'register') {
+            throw ValidationException::withMessages(['token' => 'Mã xác thực không dùng để kích hoạt tài khoản']);
+        }
         TaiKhoan::where('TenDangNhap', $t->TenDangNhap)->update(['TrangThai' => true]);
         $t->delete();
     }
@@ -92,6 +126,9 @@ class AuthService
     public function datLaiMatKhau(string $token, string $matKhauMoi): void
     {
         $t = $this->layTokenConHan($token);
+        if ($t->MucDich !== 'forgot') {
+            throw ValidationException::withMessages(['token' => 'Mã xác thực không dùng để đặt lại mật khẩu']);
+        }
         TaiKhoan::findOrFail($t->TenDangNhap)->update(['MatKhau' => $matKhauMoi]);
         $t->delete();
     }
@@ -120,10 +157,10 @@ class AuthService
         return $t;
     }
 
-    private function luuToken(string $tenDangNhap, string $token, string $otp): void
+    private function luuToken(string $tenDangNhap, string $token, string $otp, string $mucDich): void
     {
         TokenQuenMatKhau::create([
-            'TenDangNhap' => $tenDangNhap, 'ChuoiToken' => $token, 'OTPCode' => $otp,
+            'TenDangNhap' => $tenDangNhap, 'ChuoiToken' => $token, 'OTPCode' => $otp, 'MucDich' => $mucDich,
             'NgayTao' => now(), 'NgayHetHan' => now()->addMinutes(self::OTP_PHUT),
         ]);
     }
