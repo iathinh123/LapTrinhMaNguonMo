@@ -1,0 +1,137 @@
+erDiagram
+    TaiKhoan ||--o| KhachHang : "có hồ sơ"
+    TaiKhoan ||--o| NhanVien : "có hồ sơ"
+    TaiKhoan ||--o{ TokenQuenMatKhau : "nhận OTP"
+    DanhMuc ||--o{ SanPham : "phân loại"
+    NhaCungCap ||--o{ SanPham : "cung cấp"
+    NhaCungCap ||--o{ PhieuNhap : "xuất hàng"
+    NhanVien ||--o{ PhieuNhap : "lập"
+    NhanVien o|--o{ HoaDon : "xử lý"
+    KhachHang ||--o{ HoaDon : "đặt"
+    KhuyenMai o|--o{ HoaDon : "áp dụng"
+    HoaDon ||--|{ ChiTietHoaDon : "gồm"
+    SanPham ||--o{ ChiTietHoaDon : "được bán"
+    PhieuNhap ||--|{ ChiTietPhieuNhap : "gồm"
+    SanPham ||--o{ ChiTietPhieuNhap : "được nhập"
+    KhachHang ||--o{ ChiTietGioHang : "có giỏ"
+    SanPham ||--o{ ChiTietGioHang : "nằm trong"
+    KhachHang ||--o{ BinhLuan : "viết"
+    SanPham ||--o{ BinhLuan : "được đánh giá"
+    KhachHang ||--o{ KhachHang_KhuyenMai : "sở hữu"
+    KhuyenMai ||--o{ KhachHang_KhuyenMai : "tặng"
+    KhachHang o|--o{ ThongBao : "nhận"
+
+    TaiKhoan {
+        varchar TenDangNhap PK
+        varchar MatKhau
+        varchar Quyen "ROLE_ADMIN, ROLE_STAFF, ROLE_CUSTOMER"
+        boolean TrangThai
+        varchar LoaiTaiKhoan
+    }
+    TokenQuenMatKhau {
+        int MaToken PK
+        varchar TenDangNhap FK
+        varchar ChuoiToken
+        varchar OTPCode
+        datetime NgayHetHan
+    }
+    KhachHang {
+        char MaKH PK
+        varchar HoTen
+        varchar DienThoai
+        varchar Email
+        varchar TenDangNhap FK
+    }
+    NhanVien {
+        char MaNV PK
+        varchar HoTen
+        varchar ChucVu
+        varchar TenDangNhap FK
+    }
+    DanhMuc {
+        char MaDM PK
+        varchar TenDM
+        datetime deleted_at
+    }
+    NhaCungCap {
+        char MaNCC PK
+        varchar TenNCC
+        varchar SoDienThoai
+        datetime deleted_at
+    }
+    SanPham {
+        char MaSP PK
+        varchar TenSP
+        char MaDM FK
+        char MaNCC FK
+        decimal Gia
+        int SoLuong
+        int NguongToiThieu
+        varchar HinhAnh
+        datetime deleted_at
+    }
+    BinhLuan {
+        char MaBL PK
+        char MaSP FK
+        char MaKH FK
+        int SoSao
+        varchar NoiDung
+    }
+    KhuyenMai {
+        char MaKM PK
+        varchar MaCode
+        int PhanTramGiam
+        decimal DonToiThieu
+        int SoLuong
+        datetime deleted_at
+    }
+    HoaDon {
+        char MaHD PK
+        char MaKH FK
+        char MaNV FK
+        char MaKM FK
+        decimal TienGiamGia
+        decimal TongTien
+        varchar TrangThai
+        datetime NgayLap
+    }
+    ChiTietHoaDon {
+        char MaHD PK,FK
+        char MaSP PK,FK
+        int SoLuong
+        decimal DonGia
+    }
+    ChiTietGioHang {
+        char MaKH PK,FK
+        char MaSP PK,FK
+        int SoLuong
+    }
+    PhieuNhap {
+        char MaPN PK
+        char MaNV FK
+        char MaNCC FK
+        decimal TongTienNhap
+        datetime NgayNhap
+    }
+    ChiTietPhieuNhap {
+        char MaPN PK,FK
+        char MaSP PK,FK
+        int SoLuongNhap
+        decimal GiaNhap
+    }
+    KhachHang_KhuyenMai {
+        char MaKH PK,FK
+        char MaKM PK,FK
+        boolean TrangThaiSuDung
+    }
+    ThongBao {
+        int MaTB PK
+        varchar TieuDe
+        char MaKH FK
+    }
+    TinNhan {
+        int MaTN PK
+        varchar NguoiGui
+        varchar NguoiNhan
+        text NoiDung
+    }
